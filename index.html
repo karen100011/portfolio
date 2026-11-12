@@ -1,0 +1,1184 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>大英皇家學者圖書館 | Royal Academical Library</title>
+    <!-- Google Fonts for Magical Dark Academia & Storybook Typography -->
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Cinzel:wght@600;800;900&family=Great+Vibes&family=Alex+Brush&family=UnifrakturMaguntia&family=Noto+Serif+TC:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        parchment: '#F5EFE6',
+                        papertint: '#EADBC8',
+                        walnut: '#1C1410',
+                        deepgreen: '#1F3A2B',
+                        goldfoil: '#C5A059',
+                        brightgold: '#FFD700',
+                        burgundy: '#5C1321'
+                    },
+                    fontFamily: {
+                        magic: ['UnifrakturMaguntia', 'serif'],
+                        cinzelDeco: ['Cinzel Decorative', 'serif'],
+                        cinzel: ['Cinzel', 'serif'],
+                        serif: ['Noto Serif TC', 'Georgia', 'serif'],
+                        cursive: ['Great Vibes', 'Alex Brush', 'cursive']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        :root {
+            --bg-parchment: #F5EFE6;
+            --bg-paper: #EADBC8;
+            --text-dark: #1C1410;
+            --accent-green: #1F3A2B;
+            --accent-gold: #C5A059;
+            --accent-gold-bright: #FFD700;
+            --accent-burgundy: #5C1321;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            background-color: #080504;
+            color: var(--text-dark);
+            font-family: 'Noto Serif TC', 'Georgia', serif;
+            min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* 滿天星塵與魔法符文背景動畫 Canvas */
+        #bg-canvas {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        /* 羊皮紙質感背景疊加 */
+        .paper-overlay::before {
+            content: "";
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle at center, rgba(245, 239, 230, 0.95) 40%, rgba(8, 5, 4, 0.9) 100%),
+                        url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E");
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        /* 古典金屬飾角邊框框架 */
+        .academic-border {
+            border: 3px double var(--accent-gold-bright);
+            outline: 2px solid var(--accent-green);
+            outline-offset: -9px;
+            position: relative;
+            background: rgba(245, 239, 230, 0.95);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.8);
+        }
+
+        .academic-border::before, .academic-border::after {
+            content: "✦";
+            position: absolute;
+            color: var(--accent-gold-bright);
+            font-size: 1.6rem;
+            line-height: 1;
+            z-index: 10;
+            text-shadow: 0 0 12px rgba(255, 215, 0, 0.9);
+        }
+        .academic-border::before { top: 3px; left: 6px; }
+        .academic-border::after { top: 3px; right: 6px; }
+
+        /* 書籍卡片誇張金箔標題 */
+        .magical-book-card {
+            perspective: 1200px;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .magical-book-card:hover {
+            transform: translateY(-12px) scale(1.03);
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.85);
+        }
+
+        .storybook-title {
+            font-family: 'Cinzel Decorative', 'UnifrakturMaguntia', serif;
+            text-shadow: 2px 2px 8px rgba(0,0,0,0.95), 0 0 25px rgba(255,215,0,0.8);
+            line-height: 1.15;
+        }
+
+        /* 彈窗轉場動畫 */
+        .modal-backdrop {
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.35s ease, visibility 0.35s ease;
+        }
+        .modal-backdrop.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal-content {
+            transform: scale(0.8) translateY(25px);
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .modal-backdrop.active .modal-content {
+            transform: scale(1) translateY(0);
+        }
+
+        /* 3D 翻書閱讀 Modal */
+        .book-container {
+            width: 780px;
+            max-width: 95vw;
+            height: 500px;
+            perspective: 1800px;
+        }
+        .book-pages {
+            width: 100%; height: 100%;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 1s ease;
+        }
+        .book-page-left, .book-page-right {
+            position: absolute; top: 0; width: 50%; height: 100%;
+            background: var(--bg-parchment);
+            border: 2px solid var(--accent-gold);
+            padding: 26px;
+            box-shadow: inset 0 0 35px rgba(74, 21, 33, 0.18), 0 12px 30px rgba(0,0,0,0.7);
+            overflow-y: auto;
+        }
+        .book-page-left { left: 0; border-radius: 6px 0 0 6px; border-right: 4px double #5C1321; }
+        .book-page-right { right: 0; border-radius: 0 6px 6px 0; border-left: 1px solid #d4af37; transform-origin: left center; transition: transform 0.85s cubic-bezier(0.645, 0.045, 0.355, 1); }
+        .book-container.turning .book-page-right { transform: rotateY(-180deg); }
+
+        /* 3D 翻轉特展卡片 */
+        .flip-card { height: 430px; perspective: 1000px; }
+        .flip-card-inner {
+            position: relative; width: 100%; height: 100%;
+            text-align: center;
+            transition: transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            transform-style: preserve-3d; cursor: pointer;
+        }
+        .flip-card:hover .flip-card-inner { transform: rotateY(180deg); }
+        .flip-card-front, .flip-card-back {
+            position: absolute; width: 100%; height: 100%;
+            -webkit-backface-visibility: hidden; backface-visibility: hidden;
+            border: 2px solid var(--accent-gold); padding: 24px;
+            display: flex; flex-direction: column; justify-content: space-between; border-radius: 4px;
+        }
+        .flip-card-front { background: linear-gradient(145deg, #1A3326, #0D1C14); color: var(--accent-gold); box-shadow: inset 0 0 40px rgba(0,0,0,0.85); }
+        .flip-card-back { background: var(--bg-paper); color: var(--text-dark); transform: rotateY(180deg); text-align: left; border-color: var(--accent-burgundy); }
+
+        /* 點擊墨跡與金色頁碼粒子特效 */
+        .particle {
+            position: fixed; pointer-events: none;
+            font-family: 'Cinzel Decorative', 'Cinzel', serif; font-weight: bold;
+            color: var(--accent-gold-bright);
+            text-shadow: 0 0 15px rgba(255, 215, 0, 1);
+            animation: floatAndFade 1.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+            z-index: 9999;
+        }
+        .ink-particle {
+            position: fixed; pointer-events: none;
+            background: radial-gradient(circle, rgba(28, 20, 16, 0.98) 0%, rgba(92, 19, 33, 0.75) 70%, transparent 100%);
+            border-radius: 50%;
+            animation: inkSplash 1s ease-out forwards;
+            z-index: 9998;
+        }
+        @keyframes floatAndFade {
+            0% { opacity: 1; transform: translate(0, 0) scale(1) rotate(0deg); }
+            100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(2) rotate(var(--dr)); }
+        }
+        @keyframes inkSplash {
+            0% { opacity: 0.95; transform: scale(0.2); }
+            100% { opacity: 0; transform: scale(2.8); }
+        }
+
+        /* 🪶 羽毛筆寫字動態畫布特效層 */
+        #quill-overlay {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            pointer-events: none; z-index: 99999; display: none;
+            background: rgba(8, 5, 4, 0.82);
+            backdrop-filter: blur(8px);
+        }
+
+        .gold-glow { text-shadow: 0 0 15px rgba(255, 215, 0, 0.85); }
+    </style>
+</head>
+<body onclick="handleGlobalClick(event)" class="paper-overlay">
+
+    <!-- 背景動態精靈與符文 Canvas -->
+    <canvas id="bg-canvas"></canvas>
+    <!-- 華麗羽毛筆寫字特效 Canvas -->
+    <canvas id="quill-overlay"></canvas>
+
+    <!-- Header & Navigation -->
+    <header class="relative z-50 bg-deepgreen text-parchment sticky top-0 border-b-4 border-goldfoil shadow-2xl">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
+            <div class="text-center md:text-left cursor-pointer" onclick="switchTab('hall')">
+                <h1 class="font-cinzelDeco text-2xl md:text-3xl text-brightgold font-bold tracking-widest gold-glow flex items-center justify-center md:justify-start gap-2">
+                    <span>✨🏰</span> ROYAL ACADEMICAL LIBRARY
+                </h1>
+                <p class="text-xs text-papertint tracking-widest font-serif mt-1">大英皇家學者圖書館 · 魔法故事書珍本特展與期中報告系統</p>
+            </div>
+            
+            <nav class="flex flex-wrap justify-center items-center gap-2 text-sm">
+                <button id="nav-hall" onclick="switchTab('hall')" class="px-3 py-1.5 border border-goldfoil text-parchment hover:bg-goldfoil hover:text-deepgreen transition font-cinzel rounded-sm bg-goldfoil/20 font-bold">
+                    🏛️ 館藏大廳
+                </button>
+                <button id="nav-exhibitions" onclick="switchTab('exhibitions')" class="px-3 py-1.5 border border-goldfoil text-parchment hover:bg-goldfoil hover:text-deepgreen transition font-cinzel rounded-sm">
+                    👑 3D珍本特展
+                </button>
+                <button id="nav-quiz" onclick="switchTab('quiz')" class="px-3 py-1.5 border border-goldfoil text-parchment hover:bg-goldfoil hover:text-deepgreen transition font-cinzel rounded-sm">
+                    📖 分類與測驗
+                </button>
+                <button id="nav-guestbook" onclick="switchTab('guestbook')" class="px-3 py-1.5 border border-goldfoil text-parchment hover:bg-goldfoil hover:text-deepgreen transition font-cinzel rounded-sm">
+                    🪶 羽毛筆留言
+                </button>
+
+                <!-- 點擊跳轉至獨立網頁 (salon.html & kiosk.html) -->
+                <a href="salon.html" class="px-3 py-1.5 border border-brightgold text-brightgold hover:bg-brightgold hover:text-walnut transition font-cinzel rounded-sm font-semibold flex items-center gap-1 shadow-md bg-walnut/50">
+                    ☕ 學者咖啡廳 ↗
+                </a>
+                <a href="kiosk.html" class="px-3 py-1.5 border border-brightgold text-brightgold hover:bg-brightgold hover:text-walnut transition font-cinzel rounded-sm font-semibold flex items-center gap-1 shadow-md bg-walnut/50">
+                    📜 自助借書機 ↗
+                </a>
+
+                <!-- BGM 控制鈕 (Dolce Nonna Italian Music 旋律風格) -->
+                <button id="bgm-toggle" onclick="toggleBGM(event)" class="ml-2 px-3 py-1.5 bg-burgundy text-brightgold border border-goldfoil rounded-sm hover:bg-goldfoil hover:text-walnut transition font-bold flex items-center gap-1 animate-pulse">
+                    <span id="bgm-icon">🔇</span> 🇮🇹 Dolce Nonna BGM
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <main class="relative z-10 max-w-7xl mx-auto px-4 py-8">
+
+        <!-- 外部獨立網頁跳轉 Banner 區塊 -->
+        <section class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <a href="salon.html" class="p-5 bg-gradient-to-r from-deepgreen via-walnut to-burgundy border-2 border-goldfoil rounded-sm shadow-2xl hover:border-brightgold transition transform hover:-translate-y-1 block text-decoration-none text-parchment">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <span class="text-xs text-brightgold font-cinzel tracking-widest uppercase">INDEPENDENT SALON WEBSITE</span>
+                        <h3 class="font-cinzel text-xl text-goldfoil font-bold flex items-center gap-2 mt-1">
+                            ☕ 大英學者咖啡與輕食廳 (Salon) ↗
+                        </h3>
+                        <p class="text-xs text-parchment/80 mt-1 leading-relaxed">
+                            點擊直接跳轉至獨立的 salon.html：完整挑選大吉嶺手沖、維多利亞司康等精緻甜點與預約閱覽席。
+                        </p>
+                    </div>
+                    <span class="text-4xl text-goldfoil animate-bounce">🫖</span>
+                </div>
+            </a>
+
+            <a href="kiosk.html" class="p-5 bg-gradient-to-r from-burgundy via-walnut to-deepgreen border-2 border-goldfoil rounded-sm shadow-2xl hover:border-brightgold transition transform hover:-translate-y-1 block text-decoration-none text-parchment">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <span class="text-xs text-brightgold font-cinzel tracking-widest uppercase">INDEPENDENT KIOSK WEBSITE</span>
+                        <h3 class="font-cinzel text-xl text-goldfoil font-bold flex items-center gap-2 mt-1">
+                            📜 古典羊皮紙自助借書機 (Kiosk) ↗
+                        </h3>
+                        <p class="text-xs text-parchment/80 mt-1 leading-relaxed">
+                            點擊直接跳轉至獨立的 kiosk.html：體驗 RFID 學者卡感應、條碼掃描與金箔借閱憑證列印。
+                        </p>
+                    </div>
+                    <span class="text-4xl text-goldfoil animate-bounce">📜</span>
+                </div>
+            </a>
+        </section>
+
+        <!-- 1. 🏛️ 皇家館藏大廳 (Royal Collection Hall) -->
+        <section id="sec-hall" class="academic-border p-6 md:p-8 rounded-sm">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b-2 border-goldfoil pb-4 mb-6 gap-4">
+                <div>
+                    <h2 class="font-cinzelDeco text-2xl md:text-3xl text-burgundy font-bold tracking-wider flex items-center gap-2">
+                        🏛️ 皇家館藏大廳 (ROYAL COLLECTION HALL)
+                    </h2>
+                    <p class="text-xs text-walnut/70 mt-1">典藏哲學、魔法自然科學、藝術與歷史故事書級繪圖珍本。</p>
+                </div>
+                <!-- 借閱車狀態按鈕 -->
+                <button onclick="toggleCartModal()" class="px-4 py-2 bg-burgundy text-parchment border border-goldfoil hover:bg-walnut transition flex items-center gap-2 rounded-sm shadow-md">
+                    <span>🛒 個人借閱書籃</span>
+                    <span id="cart-count-badge" class="bg-brightgold text-walnut font-bold text-xs px-2 py-0.5 rounded-full">0</span>
+                </button>
+            </div>
+
+            <!-- 篩選控制面板 -->
+            <div class="bg-papertint/80 p-4 border border-goldfoil mb-8 rounded-sm flex flex-col md:flex-row gap-4 items-center justify-between shadow-inner">
+                <div class="w-full md:w-1/3">
+                    <input type="text" id="search-input" oninput="renderBooks()" placeholder="🔍 搜尋書名、作者或魔法關鍵字..." class="w-full px-3 py-2 bg-parchment border border-deepgreen text-sm focus:outline-none focus:border-goldfoil">
+                </div>
+                <div class="flex flex-wrap w-full md:w-auto gap-3">
+                    <select id="category-select" onchange="renderBooks()" class="px-3 py-2 bg-parchment border border-deepgreen text-sm focus:outline-none">
+                        <option value="ALL">全部學術領域</option>
+                        <option value="Literature">古典文學 (Literature)</option>
+                        <option value="History">帝國歷史 (History)</option>
+                        <option value="Art">皇家藝術 (Art)</option>
+                        <option value="Science">自然科學 (Science)</option>
+                        <option value="Psychology">心理學 (Psychology)</option>
+                        <option value="Philosophy">玄學哲學 (Philosophy)</option>
+                    </select>
+
+                    <select id="sort-select" onchange="renderBooks()" class="px-3 py-2 bg-parchment border border-deepgreen text-sm focus:outline-none">
+                        <option value="default">預設排序</option>
+                        <option value="year-asc">出版年代 (由古至今)</option>
+                        <option value="year-desc">出版年代 (由今至古)</option>
+                        <option value="title-asc">書名 (A-Z)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- 書籍網格 -->
+            <div id="books-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+                <!-- Javascript Insertion -->
+            </div>
+        </section>
+
+        <!-- 2. 👑 3D 珍本與新書特展 (Royal Exhibitions) -->
+        <section id="sec-exhibitions" class="academic-border p-6 md:p-8 rounded-sm hidden">
+            <div class="border-b-2 border-goldfoil pb-4 mb-6">
+                <h2 class="font-cinzelDeco text-2xl md:text-3xl text-burgundy font-bold tracking-wider flex items-center gap-2">
+                    👑 3D 皇家珍本與稀有典藏特展 (ROYAL EXHIBITIONS)
+                </h2>
+                <p class="text-xs text-walnut/70 mt-1">滑鼠移至卡片上方即可進行 3D 雙面翻轉，探索皇家封印與典藏祕辛。</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <!-- 3D Card 1 -->
+                <div class="flip-card">
+                    <div class="flip-card-inner">
+                        <div class="flip-card-front" style="background: linear-gradient(180deg, rgba(13,28,20,0.85), rgba(13,28,20,0.95)), url('https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?q=80&w=600&auto=format&fit=crop'); background-size: cover;">
+                            <div class="border-2 border-goldfoil/60 p-4 h-full flex flex-col justify-between">
+                                <span class="text-xs tracking-widest text-brightgold font-cinzel">ROYAL MANUSCRIPT I</span>
+                                <div class="my-auto flex flex-col items-center">
+                                    <h3 class="storybook-title text-2xl text-brightgold font-bold mb-2">死者之書與埃及星象手稿</h3>
+                                    <p class="text-xs text-parchment/80 font-serif">Book of the Dead & Astral Codices</p>
+                                </div>
+                                <div class="text-xs text-brightgold/90 italic font-bold">Hover to Flip 🔄</div>
+                            </div>
+                        </div>
+                        <div class="flip-card-back">
+                            <div class="flex flex-col h-full justify-between">
+                                <div>
+                                    <span class="text-xs text-burgundy font-bold font-cinzel">ARCHIVAL ID: #RA-BC1240</span>
+                                    <h4 class="font-bold text-lg text-walnut mt-1">羊皮紙起源與皇家封印</h4>
+                                    <p class="text-xs text-walnut/80 mt-2 leading-relaxed">
+                                        此珍本於 1842 年由大英探險隊於盧克索神廟地下室發掘，內頁包含手工金箔與植物墨汁繪製之星座運轉圖。
+                                    </p>
+                                </div>
+                                <div class="pt-4 border-t border-goldfoil/30 flex justify-between items-center">
+                                    <button onclick="speakText('死者之書與埃及星象手稿。此珍本於1842年發掘，包含手工金箔與植物墨汁繪製之星座圖。')" class="px-3 py-1 bg-deepgreen text-parchment text-xs rounded hover:bg-burgundy">
+                                        🔊 語音解說
+                                    </button>
+                                    <span class="text-xs text-burgundy font-bold">皇家館藏級 A+</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3D Card 2 -->
+                <div class="flip-card">
+                    <div class="flip-card-inner">
+                        <div class="flip-card-front" style="background: linear-gradient(180deg, rgba(28,20,16,0.85), rgba(74,21,33,0.9)), url('https://images.unsplash.com/photo-1532012197267-da84d127e765?q=80&w=600&auto=format&fit=crop'); background-size: cover;">
+                            <div class="border-2 border-goldfoil/60 p-4 h-full flex flex-col justify-between">
+                                <span class="text-xs tracking-widest text-brightgold font-cinzel">ROYAL MANUSCRIPT II</span>
+                                <div class="my-auto flex flex-col items-center">
+                                    <h3 class="storybook-title text-2xl text-brightgold font-bold mb-2">牛頓煉金術祕密手稿</h3>
+                                    <p class="text-xs text-parchment/80 font-serif">Newton's Alchemical Papers</p>
+                                </div>
+                                <div class="text-xs text-brightgold/90 italic font-bold">Hover to Flip 🔄</div>
+                            </div>
+                        </div>
+                        <div class="flip-card-back">
+                            <div class="flex flex-col h-full justify-between">
+                                <div>
+                                    <span class="text-xs text-burgundy font-bold font-cinzel">ARCHIVAL ID: #RA-1687-ISAAC</span>
+                                    <h4 class="font-bold text-lg text-walnut mt-1">哲人石與元素轉化筆記</h4>
+                                    <p class="text-xs text-walnut/80 mt-2 leading-relaxed">
+                                        艾薩克·牛頓爵士未公開的煉金手稿，記載關於水銀提煉與金屬光學之暗號實驗紀錄。
+                                    </p>
+                                </div>
+                                <div class="pt-4 border-t border-goldfoil/30 flex justify-between items-center">
+                                    <button onclick="speakText('牛頓煉金術祕密手稿。記載艾薩克牛頓爵士未公開的煉金手稿，包含水銀提煉與金屬光學實驗。')" class="px-3 py-1 bg-deepgreen text-parchment text-xs rounded hover:bg-burgundy">
+                                        🔊 語音解說
+                                    </button>
+                                    <span class="text-xs text-burgundy font-bold">絕密典藏</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3D Card 3 -->
+                <div class="flip-card">
+                    <div class="flip-card-inner">
+                        <div class="flip-card-front" style="background: linear-gradient(180deg, rgba(13,28,20,0.85), rgba(28,20,16,0.9)), url('https://images.unsplash.com/photo-1512820790803-83ca734da794?q=80&w=600&auto=format&fit=crop'); background-size: cover;">
+                            <div class="border-2 border-goldfoil/60 p-4 h-full flex flex-col justify-between">
+                                <span class="text-xs tracking-widest text-brightgold font-cinzel">ROYAL MANUSCRIPT III</span>
+                                <div class="my-auto flex flex-col items-center">
+                                    <h3 class="storybook-title text-2xl text-brightgold font-bold mb-2">達文西解剖與機械手稿</h3>
+                                    <p class="text-xs text-parchment/80 font-serif">Da Vinci's Codex Atlanticus</p>
+                                </div>
+                                <div class="text-xs text-brightgold/90 italic font-bold">Hover to Flip 🔄</div>
+                            </div>
+                        </div>
+                        <div class="flip-card-back">
+                            <div class="flex flex-col h-full justify-between">
+                                <div>
+                                    <span class="text-xs text-burgundy font-bold font-cinzel">ARCHIVAL ID: #RA-1510-LEO</span>
+                                    <h4 class="font-bold text-lg text-walnut mt-1">鏡向文字與飛行器構造圖</h4>
+                                    <p class="text-xs text-walnut/80 mt-2 leading-relaxed">
+                                        使用獨特反向左手義大利文撰寫，詳細繪製了人體骨骼運動力學與早期的雙翼飛行器圖。
+                                    </p>
+                                </div>
+                                <div class="pt-4 border-t border-goldfoil/30 flex justify-between items-center">
+                                    <button onclick="speakText('達文西解剖與機械手稿。使用獨特反向左手文字撰寫，詳細繪製人體骨骼運動力學與雙翼飛行器圖。')" class="px-3 py-1 bg-deepgreen text-parchment text-xs rounded hover:bg-burgundy">
+                                        🔊 語音解說
+                                    </button>
+                                    <span class="text-xs text-burgundy font-bold">國寶級特展</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. 📖 學術分類與古典小測驗 (Catalogue & Academic Quiz) -->
+        <section id="sec-quiz" class="academic-border p-6 md:p-8 rounded-sm hidden">
+            <div class="border-b-2 border-goldfoil pb-4 mb-6">
+                <h2 class="font-cinzelDeco text-2xl md:text-3xl text-burgundy font-bold tracking-wider flex items-center gap-2">
+                    📖 圖書學術分類與大英圖書館小測驗
+                </h2>
+                <p class="text-xs text-walnut/70 mt-1">測驗您的古典博學程度，回答完畢將自動統計皇家學者級別。</p>
+            </div>
+
+            <div class="max-w-3xl mx-auto bg-papertint p-6 border border-goldfoil rounded shadow-inner">
+                <form id="quiz-form" onsubmit="calculateQuizScore(event)">
+                    <div class="mb-6 pb-4 border-b border-goldfoil/40">
+                        <h4 class="font-bold text-burgundy mb-2">Q1. 在圖書館分類法中，首創「十進位圖書分類法 (DDC)」的學者是誰？</h4>
+                        <label class="block text-sm my-1 cursor-pointer"><input type="radio" name="q1" value="A" class="mr-2"> A. 麥爾威·杜威 (Melvil Dewey)</label>
+                        <label class="block text-sm my-1 cursor-pointer"><input type="radio" name="q1" value="B" class="mr-2"> B. 亞里斯多德 (Aristotle)</label>
+                        <label class="block text-sm my-1 cursor-pointer"><input type="radio" name="q1" value="C" class="mr-2"> C. 康德 (Immanuel Kant)</label>
+                    </div>
+
+                    <div class="mb-6 pb-4 border-b border-goldfoil/40">
+                        <h4 class="font-bold text-burgundy mb-2">Q2. 大英圖書館著名的圓形閱覽室 (Round Reading Room) 曾是哪位思想家撰寫著作的地方？</h4>
+                        <label class="block text-sm my-1 cursor-pointer"><input type="radio" name="q2" value="A" class="mr-2"> A. 卡爾·馬克思 (Karl Marx)</label>
+                        <label class="block text-sm my-1 cursor-pointer"><input type="radio" name="q2" value="B" class="mr-2"> B. 莎士比亞 (William Shakespeare)</label>
+                        <label class="block text-sm my-1 cursor-pointer"><input type="radio" name="q2" value="C" class="mr-2"> C. 亞當·斯密 (Adam Smith)</label>
+                    </div>
+
+                    <div class="mb-6 pb-4 border-b border-goldfoil/40">
+                        <h4 class="font-bold text-burgundy mb-2">Q3. 「Dark Academia (暗黑學院風)」視覺最常使用下列何種色彩調性？</h4>
+                        <label class="block text-sm my-1 cursor-pointer"><input type="radio" name="q3" value="A" class="mr-2"> A. 鮮豔霓虹與螢光綠</label>
+                        <label class="block text-sm my-1 cursor-pointer"><input type="radio" name="q3" value="B" class="mr-2"> B. 羊皮紙黃、胡桃木棕與古典深綠</label>
+                        <label class="block text-sm my-1 cursor-pointer"><input type="radio" name="q3" value="C" class="mr-2"> C. 馬卡龍粉紅與純白</label>
+                    </div>
+
+                    <button type="submit" class="w-full py-2.5 bg-deepgreen text-parchment font-cinzel font-bold border border-goldfoil hover:bg-burgundy transition rounded shadow">
+                        提交學術評估解答 (SUBMIT ANSWERS)
+                    </button>
+                </form>
+
+                <div id="quiz-result" class="hidden mt-6 p-4 bg-parchment border-2 border-goldfoil text-center">
+                    <h3 id="quiz-score-text" class="font-cinzel text-xl font-bold text-burgundy"></h3>
+                    <p id="quiz-rank-text" class="text-sm text-walnut mt-2 font-semibold"></p>
+                </div>
+            </div>
+        </section>
+
+        <!-- 4. 🪶 羽毛筆客棧留言牆 (Feather Pen Guestbook with Hyper-Magical Quill Animation) -->
+        <section id="sec-guestbook" class="academic-border p-6 md:p-8 rounded-sm hidden">
+            <div class="border-b-2 border-goldfoil pb-4 mb-6">
+                <h2 class="font-cinzelDeco text-2xl md:text-3xl text-burgundy font-bold tracking-wider flex items-center gap-2">
+                    🪶 皇家金羽毛筆留言牆 (ROYAL GOLDEN QUILL GUESTBOOK)
+                </h2>
+                <p class="text-xs text-walnut/70 mt-1">請寫下您的研討隨筆，送出時將開啟巨大巨型魔法羽毛筆、金色陣圖與花式草寫英文（Cursive Writing）之華麗特效展演。</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- 留言表單 -->
+                <div class="bg-papertint p-5 border border-goldfoil rounded shadow">
+                    <h3 class="font-cinzel text-lg text-burgundy font-bold mb-4">✍️ 撰寫學者隨筆</h3>
+                    <div class="mb-3">
+                        <label class="block text-xs font-bold text-walnut mb-1">學者尊稱 / 姓名</label>
+                        <input type="text" id="gb-name" placeholder="例如：Dr. Watson" class="w-full p-2 bg-parchment border border-deepgreen text-sm focus:outline-none">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-xs font-bold text-walnut mb-1">研討心得 / 留言內容</label>
+                        <textarea id="gb-message" rows="4" placeholder="在此處寫下您的古典心得..." class="w-full p-2 bg-parchment border border-deepgreen text-sm focus:outline-none"></textarea>
+                    </div>
+                    <button onclick="triggerQuillWriting()" class="w-full py-2.5 bg-burgundy text-brightgold border border-goldfoil font-cinzel font-bold hover:bg-deepgreen hover:text-brightgold transition text-sm flex items-center justify-center gap-2 shadow-lg">
+                        <span>🪶 觸發巨大魔法羽毛筆簽署</span>
+                    </button>
+                </div>
+
+                <!-- 留言列表展示 -->
+                <div class="md:col-span-2 space-y-4" id="guestbook-list">
+                    <div class="p-4 bg-parchment border-l-4 border-goldfoil shadow-sm relative">
+                        <div class="flex justify-between text-xs text-walnut/60 font-cinzel mb-1">
+                            <span>Prof. Mortimer (牛津大學哲學系)</span>
+                            <span>1889-10-14</span>
+                        </div>
+                        <p class="text-sm text-walnut leading-relaxed font-serif">
+                            「館藏大廳之《利維坦》首版抄本極具震撼力，古英語墨跡保存完好。背景魔法動畫與交響奏鳴曲沉浸感極高。」
+                        </p>
+                    </div>
+
+                    <div class="p-4 bg-parchment border-l-4 border-goldfoil shadow-sm relative">
+                        <div class="flex justify-between text-xs text-walnut/60 font-cinzel mb-1">
+                            <span>Scholar Evelyn (皇家文學研究員)</span>
+                            <span>1890-02-01</span>
+                        </div>
+                        <p class="text-sm text-walnut leading-relaxed font-serif">
+                            「巨大羽毛筆草寫英文與金色魔法陣的寫字特效非常震撼！搭配獨立的 salon.html 與 kiosk.html，簡直是完美的期中報告！」
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- 浮動語音播放控制條 -->
+    <div id="audio-bar" class="fixed bottom-6 right-6 bg-deepgreen text-parchment border-2 border-goldfoil px-4 py-3 rounded-sm shadow-2xl flex items-center gap-3 hidden z-[5000]">
+        <span class="animate-pulse text-brightgold text-xl">🔊</span>
+        <div class="text-xs">
+            <div id="audio-status" class="font-bold text-brightgold">朗讀中...</div>
+            <div id="audio-title" class="text-parchment/80 truncate max-w-[150px]">語音導覽系統</div>
+        </div>
+        <div class="flex gap-1 ml-2">
+            <button onclick="pauseSpeech()" class="px-2 py-1 bg-goldfoil text-deepgreen text-xs font-bold hover:bg-white">Pause</button>
+            <button onclick="resumeSpeech()" class="px-2 py-1 bg-goldfoil text-deepgreen text-xs font-bold hover:bg-white">Play</button>
+            <button onclick="stopSpeech()" class="px-2 py-1 bg-burgundy text-parchment text-xs font-bold hover:bg-red-700">Stop</button>
+        </div>
+    </div>
+
+    <!-- 3D 翻書閱讀 Modal -->
+    <div id="book-modal" class="modal-backdrop fixed inset-0 bg-black/80 z-[6000] flex items-center justify-center p-4" onclick="handleBackdropClick(event, 'book-modal')">
+        <div id="modal-book-box" class="modal-content book-container">
+            <div class="book-pages">
+                <div class="book-page-left flex flex-col justify-between">
+                    <div>
+                        <span id="modal-cat" class="text-xs font-bold text-burgundy font-cinzel"></span>
+                        <h3 id="modal-title" class="storybook-title text-2xl font-bold text-burgundy mt-2 mb-1"></h3>
+                        <p id="modal-author" class="text-xs font-serif italic text-walnut/70 mb-4"></p>
+                    </div>
+                    <div id="modal-img-container" class="my-auto flex justify-center py-2 bg-papertint/40 border border-goldfoil/40 rounded overflow-hidden">
+                        <img id="modal-cover-img" src="" alt="Book Cover" class="h-44 object-cover rounded border border-goldfoil shadow-md">
+                    </div>
+                    <div class="text-xs text-walnut/60 text-center font-cinzel border-t border-goldfoil/30 pt-2">
+                        PAGE I · ROYAL ARCHIVE
+                    </div>
+                </div>
+
+                <div class="book-page-right flex flex-col justify-between">
+                    <div>
+                        <div class="flex justify-between items-center border-b border-goldfoil/40 pb-2 mb-3">
+                            <span id="modal-year" class="text-xs font-bold text-burgundy"></span>
+                            <button onclick="closeModal()" class="text-lg font-bold text-burgundy hover:text-red-700">✕ 關閉</button>
+                        </div>
+                        <p id="modal-desc" class="text-xs leading-relaxed text-walnut font-serif mb-4"></p>
+                    </div>
+
+                    <div class="space-y-2 pt-2 border-t border-goldfoil/40">
+                        <button id="modal-speech-btn" class="w-full py-1.5 bg-deepgreen text-parchment font-cinzel text-xs border border-goldfoil hover:bg-burgundy">
+                            🔊 語音朗讀此書簡介
+                        </button>
+                        <button id="modal-cart-btn" class="w-full py-1.5 bg-burgundy text-parchment font-cinzel text-xs border border-goldfoil hover:bg-walnut">
+                            🛒 加入個人借閱書籃
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 借閱車 Modal -->
+    <div id="cart-modal" class="modal-backdrop fixed inset-0 bg-black/80 z-[6000] flex items-center justify-center p-4" onclick="handleBackdropClick(event, 'cart-modal')">
+        <div class="modal-content bg-parchment border-4 border-goldfoil max-w-lg w-full p-6 relative shadow-2xl academic-border">
+            <button onclick="toggleCartModal()" class="absolute top-3 right-3 text-xl text-burgundy font-bold hover:text-black">✕</button>
+            <h3 class="font-cinzelDeco text-xl font-bold text-burgundy border-b border-goldfoil pb-2 mb-4">
+                🛒 已挑選之借閱書籃 (BORROW BASKET)
+            </h3>
+            <div id="cart-items-list" class="space-y-3 max-h-60 overflow-y-auto mb-4 p-2 bg-papertint border border-goldfoil/40">
+                <!-- Cart Items -->
+            </div>
+            <div class="flex justify-between items-center pt-2">
+                <a href="kiosk.html" class="w-full text-center py-2.5 bg-deepgreen text-parchment font-cinzel text-sm border border-goldfoil hover:bg-burgundy block">
+                    📜 前往自助借書機 (kiosk.html) 辦理借閱 ↗
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script Section -->
+    <script>
+        const booksData = [
+            { id: 1, title: "神曲 (Divine Comedy)", author: "但丁·阿利吉耶里", year: 1320, category: "Literature", cover: "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?q=80&w=600&auto=format&fit=crop", desc: "古典文學史上的巔峰巨著，詳細講述地獄、煉獄與天堂的詩意魔法旅程。" },
+            { id: 2, title: "利維坦 (Leviathan)", author: "湯瑪斯·霍布斯", year: 1651, category: "Philosophy", cover: "https://images.unsplash.com/photo-1506880018603-83d5b814b5a6?q=80&w=600&auto=format&fit=crop", desc: "論述社會契約與國家巨獸權力起源之經典政治哲學論文。" },
+            { id: 3, title: "自然哲學的數學原理", author: "艾薩克·牛頓", year: 1687, category: "Science", cover: "https://images.unsplash.com/photo-1532012197267-da84d127e765?q=80&w=600&auto=format&fit=crop", desc: "奠定近代物理學基礎，提出三大運動定律與萬有引力定律之巨作。" },
+            { id: 4, title: "夢的解析 (Interpretation of Dreams)", author: "西格蒙德·佛洛伊德", year: 1899, category: "Psychology", cover: "https://images.unsplash.com/photo-1516979187457-637abb4f9353?q=80&w=600&auto=format&fit=crop", desc: "開創精神分析學派，深入探討潛意識、夢境隱喻與人類心靈秘密。" },
+            { id: 5, title: "藝術的故事 (The Story of Art)", author: "恩斯特·貢布里希", year: 1950, category: "Art", cover: "https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=600&auto=format&fit=crop", desc: "西方藝術史最著名的權威經典，涵蓋原始洞穴壁畫至現代藝術。" },
+            { id: 6, title: "羅馬帝國衰亡史", author: "愛德華·吉朋", year: 1776, category: "History", cover: "https://images.unsplash.com/photo-1461360370896-922624d12aa1?q=80&w=600&auto=format&fit=crop", desc: "記述羅馬帝國從鼎盛走向衰落與滅亡之史詩級宏偉歷史長卷。" },
+            { id: 7, title: "哈姆雷特 (Hamlet)", author: "威廉·莎士比亞", year: 1601, category: "Literature", cover: "https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?q=80&w=600&auto=format&fit=crop", desc: "關於復仇、生存與存在主義思考的經典悲劇劇本之王。" },
+            { id: 8, title: "純粹理性批判", author: "伊曼努爾·康德", year: 1781, category: "Philosophy", cover: "https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?q=80&w=600&auto=format&fit=crop", desc: "劃時代的知識論巨著，劃分經驗現象界與物自體本質界。" }
+        ];
+
+        let borrowCart = [];
+
+        function switchTab(tabId) {
+            const sections = ['hall', 'exhibitions', 'quiz', 'guestbook'];
+            sections.forEach(sec => {
+                document.getElementById(`sec-${sec}`).classList.add('hidden');
+                document.getElementById(`nav-${sec}`).classList.remove('bg-goldfoil', 'text-deepgreen', 'font-bold');
+            });
+            document.getElementById(`sec-${tabId}`).classList.remove('hidden');
+            document.getElementById(`nav-${tabId}`).classList.add('bg-goldfoil', 'text-deepgreen', 'font-bold');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function renderBooks() {
+            const grid = document.getElementById('books-grid');
+            const search = document.getElementById('search-input').value.toLowerCase();
+            const category = document.getElementById('category-select').value;
+            const sort = document.getElementById('sort-select').value;
+
+            let filtered = booksData.filter(b => {
+                const matchSearch = b.title.toLowerCase().includes(search) || b.author.toLowerCase().includes(search) || b.desc.toLowerCase().includes(search);
+                const matchCat = category === 'ALL' || b.category === category;
+                return matchSearch && matchCat;
+            });
+
+            if (sort === 'year-asc') filtered.sort((a,b) => a.year - b.year);
+            if (sort === 'year-desc') filtered.sort((a,b) => b.year - a.year);
+            if (sort === 'title-asc') filtered.sort((a,b) => b.title.localeCompare(b.title, 'zh-TW'));
+
+            grid.innerHTML = filtered.map(b => `
+                <div class="magical-book-card bg-papertint border-2 border-goldfoil p-4 rounded-sm flex flex-col justify-between shadow-2xl relative overflow-hidden">
+                    <div>
+                        <div class="h-52 w-full rounded border-2 border-goldfoil mb-4 shadow-md overflow-hidden relative group">
+                            <img src="${b.cover}" alt="${b.title}" class="w-full h-full object-cover transition transform group-hover:scale-110 duration-500" onerror="this.src='https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?q=80&w=600&auto=format&fit=crop'">
+                            <div class="absolute inset-0 bg-gradient-to-t from-walnut/90 via-walnut/30 to-transparent flex items-end p-3">
+                                <h3 class="storybook-title text-lg text-brightgold font-bold leading-tight drop-shadow">${b.title}</h3>
+                            </div>
+                        </div>
+                        <h4 class="font-bold text-burgundy text-md font-serif mb-1">${b.title}</h4>
+                        <p class="text-xs text-walnut/70 italic mb-2">${b.author} (${b.year < 0 ? `BC ${Math.abs(b.year)}` : `AD ${b.year}`})</p>
+                        <p class="text-xs text-walnut leading-relaxed line-clamp-3 mb-4">${b.desc}</p>
+                    </div>
+                    <div class="space-y-2 pt-2 border-t border-goldfoil/40">
+                        <div class="flex gap-2">
+                            <button onclick="openBookModal(${b.id})" class="flex-1 py-1.5 bg-deepgreen text-parchment text-xs font-cinzel border border-goldfoil hover:bg-burgundy transition font-bold">
+                                📖 3D 翻書閱讀
+                            </button>
+                            <button onclick="speakText('${b.title}。${b.author}著作。${b.desc}')" class="px-3 py-1.5 bg-goldfoil text-deepgreen text-xs font-bold hover:bg-white transition" title="語音朗讀">
+                                🔊 朗讀
+                            </button>
+                        </div>
+                        <button onclick="addToCart(${b.id})" class="w-full py-1.5 bg-burgundy text-parchment text-xs font-cinzel border border-goldfoil hover:bg-walnut transition">
+                            + 加入借閱書籃
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function openBookModal(id) {
+            const b = booksData.find(item => item.id === id);
+            document.getElementById('modal-title').innerText = b.title;
+            document.getElementById('modal-author').innerText = `作者：${b.author}`;
+            document.getElementById('modal-desc').innerText = b.desc;
+            document.getElementById('modal-cat').innerText = `CATEGORY: ${b.category.toUpperCase()}`;
+            document.getElementById('modal-year').innerText = `PUBLISHED: ${b.year < 0 ? `BC ${Math.abs(b.year)}` : `AD ${b.year}`}`;
+            
+            const coverImg = document.getElementById('modal-cover-img');
+            coverImg.src = b.cover;
+
+            document.getElementById('modal-speech-btn').onclick = () => speakText(`${b.title}。${b.author} 著作。${b.desc}`);
+            document.getElementById('modal-cart-btn').onclick = () => { addToCart(b.id); closeModal(); };
+
+            const modal = document.getElementById('book-modal');
+            const box = document.getElementById('modal-book-box');
+            modal.classList.add('active');
+            box.classList.add('turning');
+            setTimeout(() => box.classList.remove('turning'), 850);
+        }
+
+        function closeModal() { document.getElementById('book-modal').classList.remove('active'); }
+
+        function addToCart(id) {
+            const book = booksData.find(b => b.id === id);
+            if (!borrowCart.some(item => item.id === id)) {
+                borrowCart.push(book);
+                updateCartBadge();
+                alert(`已將《${book.title}》加入借閱書籃！`);
+            } else {
+                alert(`《${book.title}》已在您的借閱書籃中。`);
+            }
+        }
+
+        function removeFromCart(id) {
+            borrowCart = borrowCart.filter(item => item.id !== id);
+            updateCartBadge();
+            renderCartModal();
+        }
+
+        function updateCartBadge() { document.getElementById('cart-count-badge').innerText = borrowCart.length; }
+
+        function toggleCartModal() {
+            const modal = document.getElementById('cart-modal');
+            if (!modal.classList.contains('active')) {
+                renderCartModal();
+                modal.classList.add('active');
+            } else {
+                modal.classList.remove('active');
+            }
+        }
+
+        function renderCartModal() {
+            const list = document.getElementById('cart-items-list');
+            if (borrowCart.length === 0) {
+                list.innerHTML = `<p class="text-xs text-walnut/60 text-center py-4">您的書籃目前是空的。</p>`;
+                return;
+            }
+            list.innerHTML = borrowCart.map(item => `
+                <div class="flex justify-between items-center p-2 bg-parchment border border-goldfoil/30 text-xs">
+                    <div>
+                        <span class="font-bold text-burgundy">${item.title}</span>
+                        <span class="text-walnut/60 ml-2">(${item.author})</span>
+                    </div>
+                    <button onclick="removeFromCart(${item.id})" class="text-red-700 font-bold hover:underline">移除</button>
+                </div>
+            `).join('');
+        }
+
+        function handleBackdropClick(event, modalId) {
+            if (event.target.id === modalId) document.getElementById(modalId).classList.remove('active');
+        }
+
+        // Web Speech API
+        let currentUtterance = null;
+        function speakText(text) {
+            if (!('speechSynthesis' in window)) { alert("瀏覽器不支援語音朗讀。"); return; }
+            window.speechSynthesis.cancel();
+            currentUtterance = new SpeechSynthesisUtterance(text);
+            currentUtterance.lang = 'zh-TW';
+            currentUtterance.rate = 0.92;
+
+            const audioBar = document.getElementById('audio-bar');
+            audioBar.classList.remove('hidden');
+            document.getElementById('audio-status').innerText = "朗讀中...";
+            document.getElementById('audio-title').innerText = text.substring(0, 15) + "...";
+
+            currentUtterance.onend = () => {
+                document.getElementById('audio-status').innerText = "朗讀完畢";
+                setTimeout(() => audioBar.classList.add('hidden'), 3000);
+            };
+            window.speechSynthesis.speak(currentUtterance);
+        }
+        function pauseSpeech() { if (window.speechSynthesis.speaking) window.speechSynthesis.pause(); }
+        function resumeSpeech() { if (window.speechSynthesis.paused) window.speechSynthesis.resume(); }
+        function stopSpeech() { window.speechSynthesis.cancel(); document.getElementById('audio-bar').classList.add('hidden'); }
+
+        // Web Audio API BGM: 🇮🇹 Dolce Nonna Italian Music Style (Warm, Nostalgic Acoustic Mandolin & Accordion Progression)
+        let audioCtx = null, isBgmPlaying = false, bgmInterval = null;
+        function toggleBGM(e) {
+            if (e) e.stopPropagation();
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const icon = document.getElementById('bgm-icon');
+            if (!isBgmPlaying) {
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                startDolceNonnaBGM();
+                isBgmPlaying = true;
+                icon.innerText = "🔊";
+            } else {
+                stopDolceNonnaBGM();
+                isBgmPlaying = false;
+                icon.innerText = "🔇";
+            }
+        }
+
+        // 模擬義大利民謠風格的溫馨和弦與撥弦音色
+        function playMandolinNote(freq, time, duration, type = 'triangle') {
+            if (!audioCtx || !isBgmPlaying) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, time);
+            
+            // 溫暖的義大利曼陀林/手風琴漸強漸弱曲線
+            gain.gain.setValueAtTime(0.001, time);
+            gain.gain.linearRampToValueAtTime(0.06, time + 0.08);
+            gain.gain.exponentialRampToValueAtTime(0.0001, time + duration);
+
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(time);
+            osc.stop(time + duration);
+        }
+
+        function startDolceNonnaBGM() {
+            // 義大利經典浪漫旋律和弦進行 (C - Am - Dm - G7 風格的溫馨抒情進行)
+            const dolceChordProgression = [
+                [261.63, 329.63, 392.00], // C major
+                [220.00, 261.63, 329.63], // A minor
+                [146.83, 220.00, 261.63], // D minor
+                [196.00, 246.94, 349.23]  // G7
+            ];
+            
+            let chordIndex = 0;
+            bgmInterval = setInterval(() => {
+                if (!isBgmPlaying) return;
+                const chord = dolceChordProgression[chordIndex % dolceChordProgression.length];
+                const now = audioCtx.currentTime;
+
+                // 琶音與和弦交織，營造溫馨懷舊的義大利 Nonna (祖母) 咖啡館風情
+                chord.forEach((freq, i) => {
+                    playMandolinNote(freq, now + i * 0.18, 1.4, i === 0 ? 'sine' : 'triangle');
+                });
+
+                // 加入高音裝飾音 (Mandolin high trill)
+                if (chordIndex % 2 === 0) {
+                    playMandolinNote(523.25, now + 0.6, 0.6, 'sine');
+                    playMandolinNote(587.33, now + 0.8, 0.6, 'sine');
+                }
+
+                chordIndex++;
+            }, 1400);
+        }
+
+        function stopDolceNonnaBGM() { 
+            if (bgmInterval) clearInterval(bgmInterval); 
+        }
+
+        // 🪶 誇張魔法金色羽毛筆 + 草寫英文動態特效 (Hyper-Magical Golden Quill Animation)
+        let quillParticles = [];
+
+        function drawMagicalQuill(ctx, x, y, angle) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(angle);
+
+            // 筆尖光暈
+            const tipGlow = ctx.createRadialGradient(0, 0, 2, 0, 0, 35);
+            tipGlow.addColorStop(0, "rgba(255, 255, 255, 1)");
+            tipGlow.addColorStop(0.3, "rgba(255, 215, 0, 0.9)");
+            tipGlow.addColorStop(0.7, "rgba(197, 160, 89, 0.4)");
+            tipGlow.addColorStop(1, "rgba(0, 0, 0, 0)");
+            ctx.fillStyle = tipGlow;
+            ctx.beginPath();
+            ctx.arc(0, 0, 35, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 筆尖 (Nib)
+            ctx.fillStyle = "#FFD700";
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(-12, -35);
+            ctx.lineTo(12, -35);
+            ctx.closePath();
+            ctx.fill();
+            ctx.strokeStyle = "#FFFFFF";
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            // 金屬筆管與藍寶石裝飾
+            ctx.fillStyle = "#C5A059";
+            ctx.fillRect(-10, -85, 20, 50);
+            ctx.fillStyle = "#0066CC";
+            ctx.beginPath();
+            ctx.arc(0, -60, 7, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = "#FFD700";
+            ctx.stroke();
+
+            // 誇張金色巨大羽片 (Large Golden Feather)
+            ctx.beginPath();
+            ctx.moveTo(0, -85);
+            ctx.bezierCurveTo(70, -180, 120, -320, 30, -450);
+            ctx.bezierCurveTo(-10, -380, -30, -260, 0, -85);
+            const featherGrad = ctx.createLinearGradient(0, -85, 50, -450);
+            featherGrad.addColorStop(0, "#C5A059");
+            featherGrad.addColorStop(0.5, "#FFD700");
+            featherGrad.addColorStop(1, "#FFF8DC");
+            ctx.fillStyle = featherGrad;
+            ctx.shadowColor = "#FFD700";
+            ctx.shadowBlur = 25;
+            ctx.fill();
+
+            // 羽毛紋理細節 (Feather Veins)
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.6)";
+            ctx.lineWidth = 2;
+            for(let i = 0; i < 12; i++) {
+                ctx.beginPath();
+                ctx.moveTo(0, -100 - i * 28);
+                ctx.lineTo(25 + i * 2, -120 - i * 28);
+                ctx.stroke();
+            }
+
+            ctx.restore();
+        }
+
+        function triggerQuillWriting() {
+            const name = document.getElementById('gb-name').value.trim();
+            const msg = document.getElementById('gb-message').value.trim();
+
+            if (!name || !msg) {
+                alert("請填寫您的尊稱與心得內容！");
+                return;
+            }
+
+            const canvas = document.getElementById('quill-overlay');
+            canvas.style.display = 'block';
+            const ctx = canvas.getContext('2d');
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+
+            let progress = 0;
+            quillParticles = [];
+
+            // 預定草寫英文文字與座標軌跡 (Royal Cursive English Magic Script)
+            const scriptLines = [
+                { text: `Royal Guestbook Signet`, x: canvas.width / 2 - 280, y: canvas.height / 2 - 120, font: "bold 46px 'Great Vibes', 'Alex Brush', cursive" },
+                { text: `By Scholar: ${name}`, x: canvas.width / 2 - 260, y: canvas.height / 2 - 40, font: "38px 'Great Vibes', cursive" },
+                { text: `"${msg.substring(0, 32)}..."`, x: canvas.width / 2 - 240, y: canvas.height / 2 + 40, font: "32px 'Great Vibes', cursive" },
+                { text: `Veritas & Sapientia - ${new Date().getFullYear()}`, x: canvas.width / 2 - 220, y: canvas.height / 2 + 110, font: "28px 'Alex Brush', cursive" }
+            ];
+
+            function animateQuill() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                progress += 0.007;
+
+                // 1. 繪製背景羊皮卷軸 (Ancient Parchment Scroll)
+                const boxW = Math.min(680, canvas.width - 40);
+                const boxH = 420;
+                const boxX = canvas.width / 2 - boxW / 2;
+                const boxY = canvas.height / 2 - boxH / 2;
+
+                ctx.save();
+                ctx.fillStyle = "rgba(245, 239, 230, 0.96)";
+                ctx.strokeStyle = "#C5A059";
+                ctx.lineWidth = 6;
+                ctx.shadowColor = "#FFD700";
+                ctx.shadowBlur = 30;
+                ctx.fillRect(boxX, boxY, boxW, boxH);
+                ctx.strokeRect(boxX, boxY, boxW, boxH);
+
+                // 金屬雙線內框
+                ctx.strokeStyle = "#5C1321";
+                ctx.lineWidth = 2;
+                ctx.strokeRect(boxX + 10, boxY + 10, boxW - 20, boxH - 20);
+
+                // 2. 繪製背景魔法陣 (Magical Circle Array)
+                const circleX = canvas.width / 2;
+                const circleY = canvas.height / 2;
+                ctx.save();
+                ctx.translate(circleX, circleY);
+                ctx.rotate(progress * 2);
+                ctx.strokeStyle = "rgba(197, 160, 89, 0.35)";
+                ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.arc(0, 0, 180, 0, Math.PI * 2); ctx.stroke();
+                ctx.beginPath(); ctx.arc(0, 0, 160, 0, Math.PI * 2); ctx.stroke();
+                // 八角星
+                for (let i = 0; i < 8; i++) {
+                    ctx.rotate(Math.PI / 4);
+                    ctx.beginPath(); ctx.moveTo(-160, 0); ctx.lineTo(160, 0); ctx.stroke();
+                }
+                ctx.restore();
+
+                // 3. 逐行繪製草寫英文特效 (Cursive Script Animation)
+                let currentQuillX = boxX + 60;
+                let currentQuillY = boxY + 80;
+
+                const totalLines = scriptLines.length;
+                const currentLineIndex = Math.min(Math.floor(progress * totalLines), totalLines - 1);
+
+                for (let i = 0; i < totalLines; i++) {
+                    const line = scriptLines[i];
+                    ctx.font = line.font;
+
+                    if (i < currentLineIndex) {
+                        // 已寫完的行 - 亮金草寫光芒
+                        ctx.fillStyle = "#5C1321";
+                        ctx.shadowColor = "#FFD700";
+                        ctx.shadowBlur = 10;
+                        ctx.fillText(line.text, line.x, line.y);
+                    } else if (i === currentLineIndex) {
+                        // 正在書寫的行
+                        const lineProgress = (progress * totalLines) - currentLineIndex;
+                        const charCount = Math.floor(lineProgress * line.text.length);
+                        const visibleText = line.text.substring(0, charCount);
+
+                        ctx.fillStyle = "#1C1410";
+                        ctx.shadowColor = "#FFD700";
+                        ctx.shadowBlur = 15;
+                        ctx.fillText(visibleText, line.x, line.y);
+
+                        // 計算當前筆尖動態位置
+                        const textMetrics = ctx.measureText(visibleText);
+                        currentQuillX = line.x + textMetrics.width;
+                        currentQuillY = line.y;
+
+                        // 產生筆尖金色魔法星塵粒子
+                        if (Math.random() > 0.2) {
+                            quillParticles.push({
+                                x: currentQuillX + (Math.random() - 0.5) * 10,
+                                y: currentQuillY + (Math.random() - 0.5) * 10,
+                                vx: (Math.random() - 0.5) * 3,
+                                vy: (Math.random() - 0.5) * 3 - 1,
+                                size: Math.random() * 4 + 2,
+                                alpha: 1,
+                                color: Math.random() > 0.5 ? '#FFD700' : '#C5A059'
+                            });
+                        }
+                    }
+                }
+
+                // 4. 更新並繪製筆尖魔法粒子 (Particles)
+                for (let pIdx = quillParticles.length - 1; pIdx >= 0; pIdx--) {
+                    const p = quillParticles[pIdx];
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    p.alpha -= 0.02;
+                    if (p.alpha <= 0) {
+                        quillParticles.splice(pIdx, 1);
+                        continue;
+                    }
+                    ctx.fillStyle = p.color;
+                    ctx.globalAlpha = p.alpha;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.globalAlpha = 1;
+                }
+
+                // 5. 繪製巨大誇張羽毛筆 (Golden Feather Pen)
+                const quillAngle = -Math.PI / 4 + Math.sin(progress * 30) * 0.08;
+                drawMagicalQuill(ctx, currentQuillX, currentQuillY, quillAngle);
+
+                ctx.restore();
+
+                if (progress < 1.05) {
+                    requestAnimationFrame(animateQuill);
+                } else {
+                    setTimeout(() => {
+                        canvas.style.display = 'none';
+                        addGuestbookEntryDirect(name, msg);
+                    }, 600);
+                }
+            }
+
+            animateQuill();
+        }
+
+        function addGuestbookEntryDirect(name, msg) {
+            const list = document.getElementById('guestbook-list');
+            const dateStr = new Date().toISOString().split('T')[0];
+            const entry = document.createElement('div');
+            entry.className = "p-4 bg-parchment border-l-4 border-goldfoil shadow-sm relative animate-pulse";
+            entry.innerHTML = `
+                <div class="flex justify-between text-xs text-walnut/60 font-cinzel mb-1">
+                    <span>${name}</span>
+                    <span>${dateStr}</span>
+                </div>
+                <p class="text-sm text-walnut leading-relaxed font-serif">
+                    「${msg}」
+                </p>
+            `;
+            list.prepend(entry);
+            document.getElementById('gb-name').value = '';
+            document.getElementById('gb-message').value = '';
+            alert("✨ 金色羽毛筆簽署完畢！草寫簽名已成功載入皇家留言牆。");
+        }
+
+        // 點擊特效
+        function handleGlobalClick(e) {
+            if (['BUTTON', 'INPUT', 'SELECT', 'TEXTAREA', 'A'].includes(e.target.tagName)) return;
+            const symbols = ['𝕴', '𝕴𝕴', '§', '📜', '✒️', '✨', '✦'];
+            const p = document.createElement('div');
+            p.className = 'particle';
+            p.innerText = symbols[Math.floor(Math.random() * symbols.length)];
+            p.style.left = `${e.clientX}px`;
+            p.style.top = `${e.clientY}px`;
+            p.style.setProperty('--dx', (Math.random() - 0.5) * 150 + 'px');
+            p.style.setProperty('--dy', - (Math.random() * 100 + 60) + 'px');
+            p.style.setProperty('--dr', (Math.random() - 0.5) * 90 + 'deg');
+            document.body.appendChild(p);
+            setTimeout(() => p.remove(), 1300);
+
+            const ink = document.createElement('div');
+            ink.className = 'ink-particle';
+            const size = Math.random() * 18 + 10;
+            ink.style.width = `${size}px`; ink.style.height = `${size}px`;
+            ink.style.left = `${e.clientX - size/2}px`; ink.style.top = `${e.clientY - size/2}px`;
+            document.body.appendChild(ink);
+            setTimeout(() => ink.remove(), 1000);
+        }
+
+        function calculateQuizScore(e) {
+            e.preventDefault();
+            const form = new FormData(e.target);
+            let score = 0;
+            if (form.get('q1') === 'A') score += 33;
+            if (form.get('q2') === 'A') score += 33;
+            if (form.get('q3') === 'B') score += 34;
+
+            const resDiv = document.getElementById('quiz-result');
+            resDiv.classList.remove('hidden');
+            document.getElementById('quiz-score-text').innerText = `得分：${score} / 100 分`;
+            document.getElementById('quiz-rank-text').innerText = score === 100 ? "🏆 皇家首席圖書館大師" : "📜 資深牛津學者";
+        }
+
+        // 背景粒子動畫
+        function initBgCanvas() {
+            const canvas = document.getElementById('bg-canvas');
+            const ctx = canvas.getContext('2d');
+            let w = canvas.width = window.innerWidth;
+            let h = canvas.height = window.innerHeight;
+            window.addEventListener('resize', () => { w = canvas.width = window.innerWidth; h = canvas.height = window.innerHeight; });
+
+            const runes = ['𝕴', '𝕴𝕴', '✦', '✧', '☥', '✒️', '📜', '🫖'];
+            const particles = Array.from({ length: 65 }, () => ({
+                x: Math.random() * w, y: Math.random() * h,
+                radius: Math.random() * 2.5 + 1,
+                alpha: Math.random() * 0.7 + 0.3,
+                speedY: Math.random() * 0.4 + 0.1,
+                speedX: (Math.random() - 0.5) * 0.3,
+                isRune: Math.random() > 0.7,
+                runeChar: runes[Math.floor(Math.random() * runes.length)],
+                fontSize: Math.random() * 14 + 10
+            }));
+
+            function animate() {
+                ctx.clearRect(0, 0, w, h);
+                particles.forEach(p => {
+                    if (p.isRune) {
+                        ctx.font = `${p.fontSize}px 'Cinzel', serif`;
+                        ctx.fillStyle = `rgba(197, 160, 89, ${p.alpha * 0.6})`;
+                        ctx.fillText(p.runeChar, p.x, p.y);
+                    } else {
+                        ctx.beginPath();
+                        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                        ctx.fillStyle = `rgba(255, 215, 0, ${p.alpha})`;
+                        ctx.shadowBlur = 12; ctx.shadowColor = '#FFD700';
+                        ctx.fill();
+                    }
+                    p.y -= p.speedY; p.x += p.speedX;
+                    if (p.y < -20) { p.y = h + 20; p.x = Math.random() * w; }
+                });
+                requestAnimationFrame(animate);
+            }
+            animate();
+        }
+
+        window.onload = () => { renderBooks(); initBgCanvas(); };
+    </script>
+</body>
+</html>

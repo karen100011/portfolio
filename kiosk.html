@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>古典羊皮紙自助借還書終端機 | Royal Library Kiosk</title>
+    <!-- 字體引進：Cinzel, Noto Serif TC, Courier Prime for 憑證字體 -->
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Noto+Serif+TC:wght@400;600;700&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome 圖示 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'acad-dark': '#1C1410',
+                        'acad-bg': '#2D1B14',
+                        'acad-crimson': '#5C1321',
+                        'acad-crimson-hover': '#7A1B2E',
+                        'acad-green': '#1F3A2B',
+                        'acad-green-hover': '#2C503D',
+                        'acad-gold': '#C5A059',
+                        'acad-gold-light': '#E5C17C',
+                        'acad-parchment': '#F5EFE6',
+                        'acad-parchment-dark': '#EADBC8',
+                    },
+                    fontFamily: {
+                        serif: ['"Noto Serif TC"', 'serif'],
+                        cinzel: ['Cinzel', 'serif'],
+                        mono: ['"Courier Prime"', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* 全局古典底圖與滾動條 */
+        body { 
+            background-color: #2D1B14; 
+            background-image: radial-gradient(#3D251D 1px, transparent 1px);
+            background-size: 24px 24px;
+            color: #F5EFE6; 
+            font-family: 'Noto Serif TC', serif; 
+        }
+
+        /* 雙框與金邊學術質感 */
+        .academic-border { 
+            border: 3px double #C5A059; 
+            background: rgba(245, 239, 230, 0.96); 
+            color: #1C1410; 
+            box-shadow: 0 20px 50px rgba(0,0,0,0.85), inset 0 0 60px rgba(197, 160, 89, 0.15); 
+        }
+
+        /* 特殊金色質感邊框 */
+        .gold-border {
+            border: 2px solid #C5A059;
+            box-shadow: inset 0 0 8px rgba(197, 160, 89, 0.3);
+        }
+
+        /* 掃描條光束動畫 */
+        @keyframes laserScan {
+            0% { top: 0%; opacity: 0.3; }
+            50% { top: 90%; opacity: 0.9; }
+            100% { top: 0%; opacity: 0.3; }
+        }
+        .laser-beam {
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, #FFD700, #C5A059, #FFD700, transparent);
+            box-shadow: 0 0 12px #FFD700, 0 0 5px #C5A059;
+            animation: laserScan 2.5s infinite ease-in-out;
+        }
+
+        /* RFID 聲波擴散動畫 */
+        @keyframes pulseRing {
+            0% { transform: scale(0.8); opacity: 0.8; }
+            100% { transform: scale(1.5); opacity: 0; }
+        }
+        .pulse-ring {
+            animation: pulseRing 1.8s infinite ease-out;
+        }
+
+        /* 羊皮紙列印滑出動畫 */
+        @keyframes unrollReceipt {
+            0% { max-height: 0; opacity: 0; transform: translateY(-20px); }
+            100% { max-height: 800px; opacity: 1; transform: translateY(0); }
+        }
+        .animate-receipt {
+            animation: unrollReceipt 1.2s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+        }
+
+        /* 憑證鋸齒撕邊效果 */
+        .receipt-edge {
+            background: #F5EFE6;
+            background-image: radial-gradient(circle at 10px -5px, transparent 12px, #F5EFE6 13px);
+            background-size: 20px 20px;
+        }
+
+        /* 火漆印章浮雕 */
+        .wax-seal {
+            background: radial-gradient(circle at 30% 30%, #901C2B, #5C1321);
+            box-shadow: 2px 4px 8px rgba(0,0,0,0.5), inset -2px -2px 4px rgba(0,0,0,0.4), inset 2px 2px 4px rgba(255,255,255,0.3);
+        }
+
+        /* 滾動條美化 */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #EADBC8; }
+        ::-webkit-scrollbar-thumb { background: #C5A059; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #5C1321; }
+
+        @media print {
+            body * { visibility: hidden; }
+            #printable-receipt, #printable-receipt * { visibility: visible; }
+            #printable-receipt { position: absolute; left: 0; top: 0; width: 100%; }
+        }
+    </style>
+</head>
+<body class="p-3 md:p-8 min-h-screen flex flex-col items-center justify-center">
+
+    <!-- 主終端機面板容器 -->
+    <div class="max-w-4xl w-full academic-border p-5 md:p-8 rounded-sm relative my-auto transition-all duration-300">
+        
+        <!-- 機台頂部 Header -->
+        <div class="flex flex-col sm:flex-row justify-between items-center border-b-2 border-[#C5A059] pb-4 mb-6 gap-3">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-full bg-[#5C1321] border-2 border-[#C5A059] flex items-center justify-center text-[#FFD700] text-xl shadow-lg">
+                    <i class="fa-solid font-cinzel">📜</i>
+                </div>
+                <div>
+                    <h1 class="font-cinzel text-xl md:text-2xl text-[#5C1321] font-black tracking-wide flex items-center gap-2">
+                        ROYAL LIBRARY KIOSK
+                    </h1>
+                    <p class="text-xs text-[#1C1410]/80 font-semibold mt-0.5">大英皇家圖書館 • 多功能自助感應借還書終端系統</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-2">
+                <span id="current-time-display" class="font-mono text-xs text-[#5C1321] bg-[#EADBC8] px-3 py-1.5 rounded border border-[#C5A059] font-bold">
+                    1895-12-31 10:00
+                </span>
+                <button onclick="resetKiosk()" title="重置機台" class="px-3 py-1.5 bg-[#1F3A2B] text-[#F5EFE6] text-xs font-bold rounded hover:bg-[#5C1321] transition border border-[#C5A059] flex items-center gap-1">
+                    <i class="fa-solid fa-rotate-right"></i> 重置
+                </button>
+            </div>
+        </div>
+
+        <!-- 模式選擇 Tab ( Borrow / Renew / Return ) -->
+        <div class="grid grid-cols-3 gap-2 mb-6">
+            <button id="mode-borrow" onclick="switchMode('borrow')" class="py-2.5 px-3 rounded text-xs md:text-sm font-bold border border-[#C5A059] transition flex items-center justify-center gap-2 bg-[#5C1321] text-white shadow-md">
+                <i class="fa-solid fa-book-bookmark"></i> 借閱圖書 (Borrow)
+            </button>
+            <button id="mode-renew" onclick="switchMode('renew')" class="py-2.5 px-3 rounded text-xs md:text-sm font-bold border border-[#C5A059] transition flex items-center justify-center gap-2 bg-[#EADBC8] text-[#1C1410] hover:bg-[#D8C4AA]">
+                <i class="fa-solid fa-[#fa-arrows-rotate] fa-sync"></i> 續借圖書 (Renew)
+            </button>
+            <button id="mode-return" onclick="switchMode('return')" class="py-2.5 px-3 rounded text-xs md:text-sm font-bold border border-[#C5A059] transition flex items-center justify-center gap-[#fa-box-archive] gap-2 bg-[#EADBC8] text-[#1C1410] hover:bg-[#D8C4AA]">
+                <i class="fa-solid fa-[#fa-book-open] fa-box-archive"></i> 歸還圖書 (Return)
+            </button>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+            <!-- 左側操作區：步驟 1 與 步驟 2 (佔 7 欄) -->
+            <div class="lg:col-span-7 space-y-5">
+                
+                <!-- 步驟 1: 學者卡認證區 -->
+                <div class="p-4 bg-[#EADBC8] border-2 border-[#C5A059] rounded shadow-inner relative overflow-hidden">
+                    <div class="flex justify-between items-center mb-3">
+                        <h3 class="font-bold text-[#5C1321] text-sm md:text-base flex items-center gap-2">
+                            <span class="w-6 h-6 rounded-full bg-[#5C1321] text-white text-xs flex items-center justify-center">1</span>
+                            感應學者 RFID 證件卡
+                        </h3>
+                        <span id="card-badge" class="text-[10px] bg-gray-400 text-white px-2 py-0.5 rounded font-bold">未驗證</span>
+                    </div>
+
+                    <div class="flex flex-col sm:flex-row items-center gap-4">
+                        <!-- RFID 擬真感應 Pad -->
+                        <div onclick="triggerScanCard()" class="relative cursor-pointer group w-full sm:w-36 h-28 bg-[#1C1410] rounded-lg border-2 border-[#C5A059] flex flex-col items-center justify-center p-2 text-center transition hover:border-[#FFD700] shrink-0">
+                            <div id="pulse-effect" class="hidden absolute inset-0 rounded-lg border-2 border-[#FFD700] pulse-ring"></div>
+                            <i id="card-icon" class="fa-solid fa-address-card text-3xl text-[#C5A059] group-hover:scale-110 transition mb-1"></i>
+                            <span id="scan-btn-label" class="text-[11px] font-bold text-[#F5EFE6]">點擊擺放讀卡</span>
+                            <span class="text-[9px] text-[#C5A059]/80 mt-1">NFC / RFID Sensor</span>
+                        </div>
+
+                        <!-- 證件資訊與手動輸入選項 -->
+                        <div class="flex-1 w-full space-y-2">
+                            <div class="flex gap-2">
+                                <input type="text" id="manual-card-id" placeholder="輸入證號 (例: RA-8842)" class="text-xs p-2 bg-[#F5EFE6] border border-[#C5A059] rounded w-full focus:outline-none focus:ring-1 focus:ring-[#5C1321]">
+                                <button onclick="manualVerifyCard()" class="px-3 py-1.5 bg-[#1F3A2B] text-[#F5EFE6] text-xs font-bold rounded hover:bg-[#5C1321] transition shrink-0">
+                                    認證
+                                </button>
+                            </div>
+                            
+                            <!-- 學者資訊面板 (驗證後顯示) -->
+                            <div id="reader-info-card" class="hidden bg-[#F5EFE6] p-2.5 rounded border border-[#C5A059] text-xs space-y-1">
+                                <div class="flex justify-between font-bold text-[#5C1321]">
+                                    <span id="info-name">亞歷山大 博士</span>
+                                    <span id="info-role" class="text-[10px] bg-[#1F3A2B] text-white px-1.5 py-0.5 rounded">高級研究員</span>
+                                </div>
+                                <div class="text-[11px] text-[#1C1410]/80 grid grid-cols-2 gap-1 pt-1">
+                                    <span>證號: <strong id="info-id">RA-8842</strong></span>
+                                    <span>權限: <strong>可借 5 本</strong></span>
+                                    <span>現借: <strong id="info-borrowed">1 本</strong></span>
+                                    <span>狀況: <strong class="text-green-700">良好 (無逾期)</strong></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 步驟 2: 掃描與書籍選擇區 -->
+                <div class="p-4 bg-[#EADBC8] border-2 border-[#C5A059] rounded shadow-inner space-y-3">
+                    <div class="flex justify-between items-center">
+                        <h3 class="font-bold text-[#5C1321] text-sm md:text-base flex items-center gap-2">
+                            <span class="w-6 h-6 rounded-full bg-[#5C1321] text-white text-xs flex items-center justify-center">2</span>
+                            感應珍本條碼 / 選擇圖書
+                        </h3>
+                        <span class="text-xs text-[#5C1321] font-semibold" id="mode-instruction">請掃描欲借閱之典籍</span>
+                    </div>
+
+                    <!-- 條碼輸入與虛擬掃描鏡頭 -->
+                    <div class="flex gap-2 relative">
+                        <div class="relative flex-1">
+                            <input type="text" id="book-barcode-input" placeholder="輸入或感應條碼 (例: BK-101)" class="w-full text-xs p-2.5 pl-8 bg-[#F5EFE6] border border-[#C5A059] rounded focus:outline-none focus:ring-1 focus:ring-[#5C1321]">
+                            <i class="fa-solid fa-barcode absolute left-2.5 top-3 text-[#C5A059] text-xs"></i>
+                        </div>
+                        <button onclick="addBookFromInput()" class="px-4 py-2 bg-[#5C1321] text-[#F5EFE6] text-xs font-bold rounded hover:bg-[#1C1410] transition flex items-center gap-1">
+                            <i class="fa-solid fa-plus"></i> 感應加入
+                        </button>
+                    </div>
+
+                    <!-- 快捷館藏珍本感應區 (快速測試選單) -->
+                    <div>
+                        <p class="text-[11px] text-[#1C1410]/70 mb-1.5 font-bold flex items-center gap-1">
+                            <i class="fa-solid fa-sparkles text-[#C5A059]"></i> 點擊平台珍本 Tag 直接放入讀卡器：
+                        </p>
+                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            <button onclick="scanPresetBook('BK-101')" class="p-2 bg-[#F5EFE6] hover:bg-[#FFD700]/20 border border-[#C5A059] rounded text-left transition text-xs group">
+                                <div class="font-bold text-[#5C1321] truncate group-hover:text-[#901C2B]">自然哲學的數學原理</div>
+                                <div class="text-[10px] text-[#1C1410]/60 font-mono">BK-101 • 牛頓</div>
+                            </button>
+                            <button onclick="scanPresetBook('BK-102')" class="p-2 bg-[#F5EFE6] hover:bg-[#FFD700]/20 border border-[#C5A059] rounded text-left transition text-xs group">
+                                <div class="font-bold text-[#5C1321] truncate group-hover:text-[#901C2B]">死靈之書珍本</div>
+                                <div class="text-[10px] text-[#1C1410]/60 font-mono">BK-102 • 阿爾哈薩德</div>
+                            </button>
+                            <button onclick="scanPresetBook('BK-103')" class="p-2 bg-[#F5EFE6] hover:bg-[#FFD700]/20 border border-[#C5A059] rounded text-left transition text-xs group">
+                                <div class="font-bold text-[#5C1321] truncate group-hover:text-[#901C2B]">亞歷山大圖書館殘卷</div>
+                                <div class="text-[10px] text-[#1C1410]/60 font-mono">BK-103 • 皇家典藏</div>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 借閱期限選擇 (僅借書模式顯示) -->
+                    <div id="loan-period-container" class="pt-2 border-t border-[#C5A059]/40 flex items-center justify-between text-xs">
+                        <span class="font-bold text-[#1C1410]/80">選擇皇家借閲期限：</span>
+                        <div class="flex gap-4">
+                            <label class="flex items-center gap-1 cursor-pointer">
+                                <input type="radio" name="loan-period" value="14" checked onchange="updateDueDate()" class="accent-[#5C1321]">
+                                <span>標準 14 天</span>
+                            </label>
+                            <label class="flex items-center gap-1 cursor-pointer">
+                                <input type="radio" name="loan-period" value="30" onchange="updateDueDate()" class="accent-[#5C1321]">
+                                <span>學者 30 天</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- 右側清單與列印憑證區 (佔 5 欄) -->
+            <div class="lg:col-span-5 flex flex-col justify-between space-y-4">
+                
+                <!-- 待處理書籍動態清單 -->
+                <div class="bg-[#F5EFE6] border-2 border-[#C5A059] rounded p-4 flex-1 flex flex-col shadow-inner">
+                    <div class="flex justify-between items-center border-b border-[#C5A059] pb-2 mb-3">
+                        <h4 class="font-bold text-[#5C1321] text-xs md:text-sm flex items-center gap-1.5">
+                            <i class="fa-solid fa-list-check"></i> 本次感應圖書清單 
+                            (<span id="item-count">0</span>)
+                        </h4>
+                        <button onclick="clearBookList()" class="text-[10px] text-red-700 hover:underline font-bold">
+                            <i class="fa-solid fa-trash"></i> 清空
+                        </button>
+                    </div>
+
+                    <!-- 清單容器 -->
+                    <div id="cart-list" class="space-y-2 overflow-y-auto max-h-48 flex-1 pr-1">
+                        <!-- 空狀態提示 -->
+                        <div id="empty-cart-msg" class="text-center py-8 text-[#1C1410]/50 text-xs italic">
+                            <i class="fa-solid fa-book-open text-2xl mb-1 opacity-40"></i>
+                            <p>尚未感應任何圖書條碼...</p>
+                        </div>
+                    </div>
+
+                    <!-- 預計應還日期提示 -->
+                    <div class="mt-3 pt-2 border-t border-[#C5A059]/40 flex justify-between items-center text-xs">
+                        <span class="text-[#1C1410]/70 font-semibold">應還日期計算：</span>
+                        <span id="due-date-display" class="font-bold text-[#5C1321]">----/--/--</span>
+                    </div>
+                </div>
+
+                <!-- 步驟 3: 印製憑證與確認按鈕 -->
+                <div class="space-y-2">
+                    <button id="process-btn" onclick="processTransaction()" disabled class="w-full py-3 bg-[#5C1321] text-[#F5EFE6] font-bold text-sm rounded border-2 border-[#C5A059] shadow-md opacity-50 cursor-not-allowed hover:bg-[#1C1410] transition flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-stamp"></i> 執行並列印金箔憑證
+                    </button>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- 動態彈出 / 滑出之皇家金箔借閱憑證區 -->
+        <div id="receipt-modal" class="hidden mt-6 pt-6 border-t-2 border-[#C5A059] relative">
+            <div class="text-center mb-3 flex items-center justify-between">
+                <span class="text-xs font-bold text-[#5C1321]"><i class="fa-solid fa-[#fa-check] text-green-700"></i> 交易成功完成</span>
+                <div class="flex gap-2">
+                    <button onclick="printPhysicalReceipt()" class="px-3 py-1 bg-[#1F3A2B] text-[#F5EFE6] text-xs font-bold rounded border border-[#C5A059] hover:bg-[#5C1321] transition">
+                        <i class="fa-solid fa-print"></i> 實體列印
+                    </button>
+                    <button onclick="closeReceipt()" class="px-3 py-1 bg-gray-600 text-white text-xs font-bold rounded hover:bg-gray-800 transition">
+                        關閉憑證
+                    </button>
+                </div>
+            </div>
+
+            <!-- 擬真羊皮紙憑證內頁 -->
+            <div id="printable-receipt" class="animate-receipt bg-[#F5EFE6] text-[#1C1410] p-6 border-2 border-[#C5A059] shadow-2xl rounded-sm font-serif relative overflow-hidden max-w-lg mx-auto">
+                <!-- 裝飾花紋背景水印 -->
+                <div class="absolute inset-0 opacity-5 pointer-events-none flex items-center justify-center">
+                    <i class="fa-solid fa-crown text-[160px] text-[#5C1321]"></i>
+                </div>
+
+                <div class="text-center border-b-2 border-dashed border-[#C5A059] pb-4 mb-4">
+                    <h2 class="font-cinzel text-lg md:text-xl font-bold text-[#5C1321] tracking-wider">✨ ROYAL LIBRARY RECEIPT ✨</h2>
+                    <p class="text-[10px] text-[#C5A059] font-bold uppercase tracking-widest mt-0.5">大英皇家圖書館 • 官方認證憑證</p>
+                </div>
+
+                <div class="text-xs space-y-1.5 mb-4 font-mono">
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">交易單號：</span>
+                        <span id="receipt-[#receipt-id]" class="font-bold">TXN-18958842</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">持卡學者：</span>
+                        <span id="receipt-reader-name" class="font-bold">Dr. Alexander (#RA-8842)</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">交易模式：</span>
+                        <span id="receipt-mode" class="font-bold text-[#5C1321]">圖書借閱</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">辦理時間：</span>
+                        <span id="receipt-date">1895-12-31 10:00</span>
+                    </div>
+                </div>
+
+                <!-- 項目表格 -->
+                <div class="border-t border-b border-[#C5A059] py-3 mb-4">
+                    <table class="w-full text-xs text-left">
+                        <thead>
+                            <tr class="border-b border-[#C5A059]/40 font-mono text-[11px] text-[#5C1321]">
+                                <th class="pb-1">條碼</th>
+                                <th class="pb-1">書名</th>
+                                <th class="pb-1 text-right">應還/狀態</th>
+                            </tr>
+                        </thead>
+                        <tbody id="receipt-items-table" class="divide-y divide-gray-200/60 font-mono text-[11px]">
+                            <!-- 動態插入 -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 底部鋼印與條碼 -->
+                <div class="flex justify-between items-end pt-2">
+                    <div class="text-center space-y-1">
+                        <!-- 模擬條碼 -->
+                        <div class="font-mono text-[18px] tracking-widest text-black font-black" style="font-family: 'Courier Prime', monospace;">
+                            |||| ||| ||||| || |||
+                        </div>
+                        <p class="text-[9px] text-gray-500 font-mono">VERIFIED BY KIOSK SYSTEM</p>
+                    </div>
+
+                    <!-- 火漆印章浮雕繪製 -->
+                    <div class="wax-seal w-14 h-14 rounded-full flex flex-col items-center justify-center border-2 border-[#FFD700] text-[#FFD700] shadow-md transform rotate-12">
+                        <i class="fa-solid fa-shield-halved text-xs"></i>
+                        <span class="text-[8px] font-cinzel font-bold">ROYAL</span>
+                        <span class="text-[7px]">SEAL</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- 腳部聲明 -->
+    <p class="text-center text-xs text-[#C5A059]/70 mt-4 font-cinzel">
+        © 1895 Royal Library Self-Service System • Classical Academic Edition
+    </p>
+
+    <!-- JS 邏輯腳本 -->
+    <script>
+        // 系統資料庫 (書籍範例)
+        const BOOK_DATABASE = {
+            'BK-101': { title: '自然哲學的數學原理 (Principia)', author: '艾薩克·牛頓' },
+            'BK-102': { title: '死靈之書 (Necronomicon) 珍本', author: '阿卜杜勒·阿爾哈薩德' },
+            'BK-103': { title: '亞歷山大圖書館失落殘卷', author: '皇家文獻庫' },
+            'BK-104': { title: '天體運行論', author: '哥白尼' },
+            'BK-105': { title: '格林童話手抄初版', author: '格林兄弟' }
+        };
+
+        // 當前狀態
+        let currentMode = 'borrow'; // borrow, renew, return
+        let isCardVerified = false;
+        let activeReader = null;
+        let cart = [];
+
+        // 初始化
+        window.onload = function() {
+            updateTime();
+            setInterval(updateTime, 60000);
+            updateDueDate();
+        };
+
+        // 更新系統目前時間
+        function updateTime() {
+            const now = new Date();
+            const year = 1895; // 固定主題年份
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const mins = String(now.getMinutes()).padStart(2, '0');
+            document.getElementById('current-time-display').innerText = `${year}-${month}-${day} ${hours}:${mins}`;
+        }
+
+        // 切換模式 (借書 / 續借 / 還書)
+        function switchMode(mode) {
+            currentMode = mode;
+            const btnBorrow = document.getElementById('mode-borrow');
+            const btnRenew = document.getElementById('mode-renew');
+            const btnReturn = document.getElementById('mode-return');
+            const modeInstruction = document.getElementById('mode-instruction');
+            const periodContainer = document.getElementById('loan-period-container');
+            const processBtn = document.getElementById('process-btn');
+
+            // 樣式重置
+            [btnBorrow, btnRenew, btnReturn].forEach(btn => {
+                btn.className = "py-2.5 px-3 rounded text-xs md:text-sm font-bold border border-[#C5A059] transition flex items-center justify-center gap-2 bg-[#EADBC8] text-[#1C1410] hover:bg-[#D8C4AA]";
+            });
+
+            if (mode === 'borrow') {
+                btnBorrow.className = "py-2.5 px-3 rounded text-xs md:text-sm font-bold border border-[#C5A059] transition flex items-center justify-center gap-2 bg-[#5C1321] text-white shadow-md";
+                modeInstruction.innerText = "請感應欲借閱之典籍";
+                periodContainer.style.display = 'flex';
+                processBtn.innerHTML = `<i class="fa-solid fa-stamp"></i> 執行並列印借閱憑證`;
+            } else if (mode === 'renew') {
+                btnRenew.className = "py-2.5 px-3 rounded text-xs md:text-sm font-bold border border-[#C5A059] transition flex items-center justify-center gap-2 bg-[#1F3A2B] text-white shadow-md";
+                modeInstruction.innerText = "請感應欲辦理續借之書籍";
+                periodContainer.style.display = 'none';
+                processBtn.innerHTML = `<i class="fa-solid fa-arrows-rotate"></i> 辦理續借與列印憑證`;
+            } else if (mode === 'return') {
+                btnReturn.className = "py-2.5 px-3 rounded text-xs md:text-sm font-bold border border-[#C5A059] transition flex items-center justify-center gap-2 bg-[#1C1410] text-[#FFD700] shadow-md";
+                modeInstruction.innerText = "請感應欲歸還至館藏之書籍";
+                periodContainer.style.display = 'none';
+                processBtn.innerHTML = `<i class="fa-solid fa-box-archive"></i> 完成還書歸盤與列印憑證`;
+            }
+
+            // 清空清單重新感應
+            clearBookList();
+        }
+
+        // 觸發感應卡片動畫
+        function triggerScanCard() {
+            const btnLabel = document.getElementById('scan-btn-label');
+            const cardIcon = document.getElementById('card-icon');
+            const pulse = document.getElementById('pulse-effect');
+
+            btnLabel.innerText = "感應掃描中...";
+            cardIcon.classList.add('text-[#FFD700]', 'scale-125');
+            pulse.classList.remove('hidden');
+
+            setTimeout(() => {
+                pulse.classList.add('hidden');
+                cardIcon.classList.remove('scale-125');
+                completeCardAuth("RA-8842", "亞歷山大 博士");
+            }, 900);
+        }
+
+        // 手動認證卡號
+        function manualVerifyCard() {
+            const input = document.getElementById('manual-card-id').value.trim();
+            if(!input) {
+                alert("請輸入有效的學者證件號碼！");
+                return;
+            }
+            completeCardAuth(input, "學者會員");
+        }
+
+        // 完成學者身份驗證
+        function completeCardAuth(cardId, name) {
+            isCardVerified = true;
+            activeReader = { id: cardId, name: name };
+
+            document.getElementById('card-badge').innerText = "✓ 驗證通過";
+            document.getElementById('card-badge').className = "text-[10px] bg-green-800 text-white px-2 py-0.5 rounded font-bold";
+            
+            document.getElementById('scan-btn-label').innerText = "✓ 已感應卡片";
+            document.getElementById('reader-info-card').classList.remove('hidden');
+            
+            document.getElementById('info-name').innerText = name;
+            document.getElementById('info-id').innerText = cardId;
+
+            checkCanProcess();
+        }
+
+        // 更新計算應還日期
+        function updateDueDate() {
+            const periodRadios = document.getElementsByName('loan-period');
+            let days = 14;
+            for (let r of periodRadios) {
+                if (r.checked) days = parseInt(r.value);
+            }
+
+            const now = new Date();
+            now.setDate(now.getDate() + days);
+            
+            const year = 1895; 
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+
+            document.getElementById('due-date-display').innerText = `${year}-${month}-${day}`;
+        }
+
+        // 輸入條碼感應圖書
+        function addBookFromInput() {
+            const input = document.getElementById('book-barcode-input');
+            const code = input.value.trim().toUpperCase();
+            if (!code) return;
+
+            addBookToCart(code);
+            input.value = '';
+        }
+
+        // 快捷鍵感應館藏珍本
+        function scanPresetBook(code) {
+            addBookToCart(code);
+        }
+
+        // 加入圖書至清單
+        function addBookToCart(code) {
+            // 檢查重複
+            if (cart.some(item => item.code === code)) {
+                alert(`圖書條碼 [${code}] 已在感應清單中！`);
+                return;
+            }
+
+            const bookInfo = BOOK_DATABASE[code] || { title: `古典珍本條碼 (${code})`, author: '未知作者/皇家圖書館藏' };
+            cart.push({
+                code: code,
+                title: bookInfo.title,
+                author: bookInfo.author
+            });
+
+            renderCart();
+        }
+
+        // 移除單一項目
+        function removeBook(code) {
+            cart = cart.filter(item => item.code !== code);
+            renderCart();
+        }
+
+        // 清空清單
+        function clearBookList() {
+            cart = [];
+            renderCart();
+        }
+
+        // 渲染畫面清單
+        function renderCart() {
+            const cartList = document.getElementById('cart-list');
+            const emptyMsg = document.getElementById('empty-cart-msg');
+            const itemCount = document.getElementById('item-count');
+
+            itemCount.innerText = cart.length;
+
+            if (cart.length === 0) {
+                cartList.innerHTML = '';
+                cartList.appendChild(emptyMsg);
+                emptyMsg.classList.remove('hidden');
+            } else {
+                emptyMsg.classList.add('hidden');
+                cartList.innerHTML = '';
+
+                cart.forEach((item, index) => {
+                    const el = document.createElement('div');
+                    el.className = "p-2 bg-[#EADBC8] border border-[#C5A059] rounded flex justify-between items-center text-xs animate-fade-in";
+                    el.innerHTML = `
+                        <div class="truncate pr-2">
+                            <div class="font-bold text-[#5C1321] truncate">${item.title}</div>
+                            <div class="text-[10px] text-[#1C1410]/70 font-mono">${item.code} • ${item.author}</div>
+                        </div>
+                        <button onclick="removeBook('${item.code}')" class="text-red-800 hover:text-red-950 px-2 py-1 text-xs">
+                            <i class="fa-solid fa-circle-xmark"></i>
+                        </button>
+                    `;
+                    cartList.appendChild(el);
+                });
+            }
+
+            checkCanProcess();
+        }
+
+        // 檢查是否可執行交易
+        function checkCanProcess() {
+            const processBtn = document.getElementById('process-btn');
+            if (isCardVerified && cart.length > 0) {
+                processBtn.disabled = false;
+                processBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            } else {
+                processBtn.disabled = true;
+                processBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            }
+        }
+
+        // 執行交易並列印金箔憑證
+        function processTransaction() {
+            if (!isCardVerified) {
+                alert("請先感應或認證學者 RFID 圖書卡！");
+                return;
+            }
+            if (cart.length === 0) {
+                alert("請感應至少一本圖書！");
+                return;
+            }
+
+            // 填寫憑證資訊
+            const txnId = 'TXN-' + Math.floor(100000 + Math.random() * 900000);
+            document.getElementById('receipt-[#receipt-id]').innerText = txnId;
+            document.getElementById('receipt-reader-name').innerText = `${activeReader.name} (#${activeReader.id})`;
+
+            let modeText = "圖書借閱";
+            if (currentMode === 'renew') modeText = "圖書續借";
+            if (currentMode === 'return') modeText = "歸還圖書";
+            document.getElementById('receipt-mode').innerText = modeText;
+
+            const nowStr = document.getElementById('current-time-display').innerText;
+            document.getElementById('receipt-date').innerText = nowStr;
+
+            const dueDate = document.getElementById('due-date-display').innerText;
+
+            // 繪製憑證項目列表
+            const tbody = document.getElementById('receipt-items-table');
+            tbody.innerHTML = '';
+            cart.forEach(item => {
+                const tr = document.createElement('tr');
+                let statusBadge = (currentMode === 'return') ? '已歸還' : `應還 ${dueDate}`;
+                tr.innerHTML = `
+                    <td class="py-1 font-bold">${item.code}</td>
+                    <td class="py-1 truncate max-w-[150px]">${item.title}</td>
+                    <td class="py-1 text-right text-[#5C1321] font-bold">${statusBadge}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            // 顯示憑證區域
+            const modal = document.getElementById('receipt-modal');
+            modal.classList.remove('hidden');
+            modal.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // 實體列印觸發
+        function printPhysicalReceipt() {
+            window.print();
+        }
+
+        // 關閉憑證並重置
+        function closeReceipt() {
+            document.getElementById('receipt-modal').classList.add('hidden');
+            clearBookList();
+        }
+
+        // 重置整個機台
+        function resetKiosk() {
+            isCardVerified = false;
+            activeReader = null;
+            cart = [];
+
+            document.getElementById('card-badge').innerText = "未驗證";
+            document.getElementById('card-badge').className = "text-[10px] bg-gray-400 text-white px-2 py-0.5 rounded font-bold";
+            document.getElementById('scan-btn-label').innerText = "點擊擺放讀卡";
+            document.getElementById('reader-info-card').classList.add('hidden');
+            document.getElementById('manual-card-id').value = '';
+            document.getElementById('book-barcode-input').value = '';
+            document.getElementById('receipt-modal').classList.add('hidden');
+
+            switchMode('borrow');
+            renderCart();
+        }
+    </script>
+</body>
+</html>
